@@ -101,7 +101,7 @@
     </div>
     <img id="loading-indicator" src="./1484.gif" width="64px" height="64px"></img>
 	<form id="filter-form">
-		<label for="folder-select">Wybierz plik:</label>
+		<label for="folder-select">Wybierz ortofotomapę:</label>
 		<select class="select-checkbox" id="folder-select" name="folder-select" multiple size="3">
 			<?php
 
@@ -142,7 +142,7 @@
             older_shown = !older_shown;
         }
 
-        function showStatus(button)
+        /*function showStatus(button)
         {
           var selectedOptions = []
           for (const option of select.options) {
@@ -153,7 +153,7 @@
           console.log("Selected: " + selectedOptions)
           console.log("Loading: " + loading)
           console.log("Shown: " + shown)
-        }
+        }*/
 
         var loading = []; // ładujące się tify
         var loaded = []; // załadowane tify
