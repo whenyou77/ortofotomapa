@@ -113,20 +113,22 @@
 				// Dla każdego pliku .png w folderze situational-map
 				foreach ($files as $file) {
 					$file_name = basename($file);
-                    echo "<option value=\"$file_name\">$file_name</option>";
+          echo "<option value=\"$file_name\">$file_name</option>";
 				}
 			?>
 		</select>
         <button type="button" onclick="showOlder(this)">Starsze...</button>
-        <button type="button" onclick="showStatus()">Status</button>
-        <button type="button" onclick="map.eachLayer( function(layer) {console.log(layer)} );">Layers</button>
+        <!--<button type="button" onclick="showStatus()">Status</button>
+        <button type="button" onclick="map.eachLayer( function(layer) {console.log(layer)} );">Layers</button>-->
 	</form>
   <script>
 
     var older_shown = false;
     var select = document.getElementById("folder-select");
     var loadingIndicator = document.getElementById("loading-indicator");
-    loadingIndicator.hidden = true
+    loadingIndicator.hidden = true // ukryć ikonkę ładowania
+
+    // dla przycisku "Stare"
 
         function showOlder(button)
         {
@@ -153,10 +155,11 @@
           console.log("Shown: " + shown)
         }
 
-        var loading = [];
-        var shown = [];
-
-        //TODO(): przyśpiesz ładowanie
+        var loading = []; // ładujące się tify
+        var loaded = []; // załadowane tify
+        var loadedLayers = []; // załadowane warstwy z tiffami
+        var shown = []; // tify na ekranie
+        var selectedOptions = []; // wybrane opcje na liście
 
         function loadGeoTIFF(file) {
             var selectedFilePath = 'situational-map/' + file;
@@ -170,7 +173,7 @@
 
                       loading = loading.filter((f) => f !== file)
                       if (loading.length == 0) loadingIndicator.hidden = true
-                      shown.push(file)
+                      loaded.push(file)
 
                         var layer = new GeoRasterLayer({
                             name: file,
@@ -179,10 +182,15 @@
                             resolution: 206,
                             maxZoom: 30,           // Ustaw maksymalny poziom przybliżenia na 30
                         });
-                        layer.addTo(map);
-
-                        currentLayer = layer;
-                        map.invalidateSize();
+                        if (!loadedLayers.includes(layer)) loadedLayers.push(layer);
+                        // jeśli tif jest wybrany, dodać z nim warstwę do mapy
+                        if (selectedOptions.includes(file))
+                        {
+                          shown.push(file)
+                          layer.addTo(map);
+                          map.invalidateSize(); // odświeżyć mapę
+                        }
+                        
 
                         document.getElementById("opacity-slider").addEventListener("input", function(event) {
                             var opacity = parseFloat(event.target.value);
@@ -204,15 +212,14 @@
         var measureControl = L.control.measure({primaryLengthUnit: 'meters',secondaryLengthUnit: 'kilometers',primaryAreaUnit:'sqmeters',localization:'pl'});
         measureControl.addTo(map);
 
+    // załaduj samą mapę
+
     var layer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 			attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
 			maxZoom: 30,
             maxNativeZoom: 19
 		});
-        layer.addTo(map);
-
-        //layer.on('loading',onLoadStart)
-        //layer.on('load',onLoadEnd)
+    layer.addTo(map);
 
 		// Definiujemy ikony z fioletowym i niebieskim kolorem tła
 		var purpleIcon = new L.Icon({
@@ -236,45 +243,49 @@
 		// Tworzymy tablicę z markerami, które będziemy dodawać do mapy
 		var markers = [];
 
-    var selectedOptions = []
-      for (const option of select.options) {
-          if (option.selected) {
-           selectedOptions.push(option.value)
-          }
-      }
-      map.eachLayer( function(layer) {
-        if(layer instanceof GeoRasterLayer && !selectedOptions.includes(layer.options.name)) {
-          console.log(layer.options.name)
-          map.removeLayer(layer)
-          shown = shown.filter((f) => f !== layer.options.name)
-          loading = loading.filter((f) => f !== layer.options.name)
-        }
-      });
-      for (const option of selectedOptions) {
-          if (!loading.includes(option) && !shown.includes(option)) {
-            loadGeoTIFF(option)
-          }
-      }
+    // odznacz zaznaczone opcje
+    for (const option of select.options) {
+        option.selected = false
+    }
 
-    select.addEventListener("click", function() {
-      // TODO(): uczyń interfejs bardziej intuicyjnym
-      var selectedOptions = []
+    var selectedBefore = []
+    select.addEventListener("click", function(event) {
+      // select działa normalnie jak form z checkboxami
+      selectedOptions = []
+      if (!selectedBefore.includes(select.value)) selectedBefore.push(select.value)
+      else selectedBefore = selectedBefore.filter((s) => s !== select.value)
       for (const option of select.options) {
-          if (option.selected) {
-           selectedOptions.push(option.value)
-          }
+        if (selectedBefore.includes(option.value)) option.selected = true
+        else option.selected = false
+        if (option.selected) {
+          selectedOptions.push(option.value)
+        }
       }
+      // warstwy typu GeoRasterLayer z mapami, które nie są wybrane, są usuwane
       map.eachLayer( function(layer) {
         if(layer instanceof GeoRasterLayer && !selectedOptions.includes(layer.options.name)) {
-          console.log(layer.options.name)
+          //console.log(layer.options.name)
           map.removeLayer(layer)
           shown = shown.filter((f) => f !== layer.options.name)
           loading = loading.filter((f) => f !== layer.options.name)
         }
       });
-      for (const option of selectedOptions) {
-          if (!loading.includes(option) && !shown.includes(option)) {
-            loadGeoTIFF(option)
+      for (const option of select.options) {
+          if (loading.includes(option.value) && !option.selected)
+          {
+              console.log("who invited my man " + option.value + " blud 😭😭😭 Bro thinks he's on the team 😭😭😭")
+          }
+          
+          // dodać warstwy już załadowane do mapy. Jeśli nie są załadowane, załadować je
+          if (option.selected && !loading.includes(option.value) && !shown.includes(option.value)) {
+            if (loaded.includes(option.value))
+            {
+              let layer = loadedLayers.filter((l) => l.options.name == option.value) // wybrać warstwę z listy
+              map.addLayer(layer[0])
+              map.invalidateSize(); // odświeżyć mapę
+              continue // przejść do następnej opcji, jeśli tif został już załadowany
+            }
+            loadGeoTIFF(option.value)
           }
       }
       
